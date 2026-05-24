@@ -10,7 +10,8 @@
 	"assets": {
 		"directory": "./public/",
 		"binding": "ASSETS",
-		"run_worker_first": ["/api/*", "/cv/*"]
+		"run_worker_first": ["/api/*", "/cv", "/cvp", "/cv/*"],
+		"html_handling": "none"
 	},
 	"kv_namespaces": [
 		{

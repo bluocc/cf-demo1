@@ -18,13 +18,22 @@ export default {
       return handleClipboardAPI(request, env, ctx, path);
     }
 
-    // CV page routes - serve cv.html for SPA routing
-    if (path === '/cv' || path.match(/^\/cv\/\d{3}$/)) {
-      const cvRequest = new Request(new URL('/cv.html', request.url), request);
-      return env.ASSETS.fetch(cvRequest);
+    // CV page with ID: /cv/:id
+    if (path.match(/^\/cv\/\d{3}$/)) {
+      return env.ASSETS.fetch(new Request(new URL('/cv.html', request.url), request));
     }
 
-    // Static assets will be handled by the assets binding
+    // CV page: /cv
+    if (path === '/cv') {
+      return env.ASSETS.fetch(new Request(new URL('/cv.html', request.url), request));
+    }
+
+    // CVP page: /cvp
+    if (path === '/cvp') {
+      return env.ASSETS.fetch(new Request(new URL('/cvp.html', request.url), request));
+    }
+
+    // Other static assets (directly served by Assets binding, no Worker cost)
     return env.ASSETS.fetch(request);
   },
 };
