@@ -8,9 +8,20 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    // List all clipboards (must be before /api/clipboard check)
+    if (path === '/api/clipboards' && request.method === 'GET') {
+      return handleListClipboards(request, env, ctx);
+    }
+
     // API routes
     if (path.startsWith('/api/clipboard')) {
       return handleClipboardAPI(request, env, ctx, path);
+    }
+
+    // CV page routes - serve cv.html for SPA routing
+    if (path === '/cv' || path.match(/^\/cv\/\d{3}$/)) {
+      const cvRequest = new Request(new URL('/cv.html', request.url), request);
+      return env.ASSETS.fetch(cvRequest);
     }
 
     // Static assets will be handled by the assets binding
@@ -55,6 +66,7 @@ async function handleClipboardAPI(request, env, ctx, path) {
 
       const body = await request.json();
       const content = body.content;
+      const customId = body.id;
 
       if (!content && content !== '') {
         return jsonResponse({ error: 'Content is required' }, 400, corsHeaders);
@@ -68,7 +80,21 @@ async function handleClipboardAPI(request, env, ctx, path) {
         return jsonResponse({ error: 'Content exceeds 64KB limit' }, 400, corsHeaders);
       }
 
-      const clipboardId = generateId();
+      let clipboardId;
+      if (customId) {
+        if (!/^\d{3}$/.test(customId) || parseInt(customId) < 100 || parseInt(customId) > 999) {
+          return jsonResponse({ error: 'ID必须是100-999的数字' }, 400, corsHeaders);
+        }
+        const existing = await env.CLIPBOARD.get(`clipboard:${customId}`);
+        if (existing) {
+          clipboardId = generateId();
+        } else {
+          clipboardId = customId;
+        }
+      } else {
+        clipboardId = generateId();
+      }
+
       const data = {
         id: clipboardId,
         content,
@@ -179,12 +205,41 @@ function jsonResponse(data, status = 200, headers = {}) {
 }
 
 function generateId() {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  const randomValues = new Uint8Array(8);
-  crypto.getRandomValues(randomValues);
-  for (let i = 0; i < 8; i++) {
-    result += chars[randomValues[i] % chars.length];
+  return String(Math.floor(Math.random() * 900) + 100); // 100-999
+}
+
+async function handleListClipboards(request, env, ctx) {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
+
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
   }
-  return result;
+
+  try {
+    const keys = await env.CLIPBOARD.list({ prefix: 'clipboard:' });
+    const clipboards = [];
+
+    for (const key of keys.keys) {
+      const data = await env.CLIPBOARD.get(key.name, { type: 'json' });
+      if (data) {
+        clipboards.push({
+          id: data.id,
+          contentPreview: data.content.substring(0, 50) + (data.content.length > 50 ? '...' : ''),
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+        });
+      }
+    }
+
+    clipboards.sort((a, b) => b.createdAt - a.createdAt);
+
+    return jsonResponse(clipboards, 200, corsHeaders);
+  } catch (error) {
+    console.error('List API Error:', error);
+    return jsonResponse({ error: 'Internal server error' }, 500, corsHeaders);
+  }
 }

@@ -174,6 +174,22 @@
         .view-mode.show { display: block; }
         .edit-mode { display: block; }
         .edit-mode.hide { display: none; }
+        .id-input-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .id-input {
+            flex: 1;
+            padding: 10px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 14px;
+            max-width: 200px;
+        }
+        .id-input:focus { outline: none; border-color: #667eea; }
+        .id-input::placeholder { color: #a0aec0; }
     </style>
 </head>
 <body>
@@ -189,6 +205,10 @@
         <div id="editMode" class="edit-mode">
             <div class="card">
                 <h2>输入内容</h2>
+                <div class="id-input-group">
+                    <input id="customId" class="id-input" type="text" placeholder="自定义ID（100-999）" maxlength="3">
+                    <span style="color: #718096; font-size: 0.85rem; line-height: 40px;">留空则自动生成</span>
+                </div>
                 <textarea id="content" placeholder="在这里输入要同步的内容..." oninput="updateCharCount()"></textarea>
                 <div class="char-count">
                     <span id="charCount">0</span> / 65,536 字符
@@ -240,9 +260,9 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            const params = new URLSearchParams(window.location.search);
-            const id = params.get('id');
-            if (id) {
+            const pathParts = window.location.pathname.split('/');
+            const id = pathParts[pathParts.length - 1];
+            if (id && id !== 'cv' && /^\d{3}$/.test(id)) {
                 clipboardId = id;
                 loadClipboard(id);
             }
@@ -270,15 +290,24 @@
                 return;
             }
 
+            const customId = document.getElementById('customId').value.trim();
+            if (customId && (!/^\d{3}$/.test(customId) || parseInt(customId) < 100 || parseInt(customId) > 999)) {
+                showMessage('ID必须是100-999的数字', 'error');
+                return;
+            }
+
             const saveBtn = document.getElementById('saveBtn');
             saveBtn.disabled = true;
             saveBtn.textContent = '创建中...';
 
             try {
+                const body = { content };
+                if (customId) body.id = customId;
+
                 const response = await fetch('/api/clipboard', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ content }),
+                    body: JSON.stringify(body),
                 });
 
                 const data = await response.json();
@@ -291,11 +320,11 @@
                 lastContent = content;
 
                 // Update URL without reload
-                const newUrl = `${window.location.pathname}?id=${clipboardId}`;
+                const newUrl = `/cv/${clipboardId}`;
                 window.history.pushState({}, '', newUrl);
 
                 // Show link box
-                document.getElementById('linkInput').value = window.location.href;
+                document.getElementById('linkInput').value = window.location.origin + newUrl;
                 document.getElementById('linkBox').classList.add('show');
                 document.getElementById('updateBtn').style.display = 'inline-block';
 
@@ -376,7 +405,7 @@
             document.getElementById('editMode').classList.add('show');
             document.getElementById('viewMode').classList.remove('show');
             document.getElementById('updateBtn').style.display = 'inline-block';
-            document.getElementById('linkInput').value = window.location.href;
+            document.getElementById('linkInput').value = window.location.origin + `/cv/${clipboardId}`;
             document.getElementById('linkBox').classList.add('show');
             updateCharCount();
         }

@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>剪贴板管理 - 在线工具箱</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f7fafc;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header h1 { font-size: 1.8rem; }
+        .back-btn {
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border: 2px solid white;
+            border-radius: 6px;
+            transition: background 0.3s ease;
+        }
+        .back-btn:hover { background: rgba(255, 255, 255, 0.2); }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .card h2 {
+            font-size: 1.2rem;
+            color: #2d3748;
+            margin-bottom: 16px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .refresh-btn {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+        .refresh-btn:hover { background: #5a6fd6; }
+        .clipboard-count {
+            color: #718096;
+            font-size: 0.9rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 14px 16px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        th {
+            background: #f7fafc;
+            color: #4a5568;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        tr:hover { background: #f7fafc; }
+        .id-cell {
+            font-family: monospace;
+            font-weight: 600;
+            color: #667eea;
+        }
+        .content-preview {
+            max-width: 400px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #4a5568;
+        }
+        .time-cell {
+            color: #718096;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+        .action-cell {
+            white-space: nowrap;
+        }
+        .action-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-right: 8px;
+        }
+        .btn-view {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+        .btn-view:hover { background: #cbd5e0; }
+        .btn-edit {
+            background: #667eea;
+            color: white;
+        }
+        .btn-edit:hover { background: #5a6fd6; }
+        .btn-delete {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        .btn-delete:hover { background: #feb2b2; }
+        .message {
+            padding: 14px 18px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+            font-size: 0.95rem;
+        }
+        .message.show { display: block; }
+        .message.success { background: #c6f6d5; color: #22543d; }
+        .message.error { background: #fed7d7; color: #742a2a; }
+        .message.info { background: #bee3f8; color: #2a4365; }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #718096;
+        }
+        .empty-state p {
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+        }
+        .empty-state a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .empty-state a:hover { text-decoration: underline; }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.show { display: flex; }
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .modal-header h3 {
+            font-size: 1.2rem;
+            color: #2d3748;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #718096;
+            padding: 4px;
+        }
+        .modal-close:hover { color: #4a5568; }
+        .modal-body textarea {
+            width: 100%;
+            height: 300px;
+            padding: 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            resize: vertical;
+            line-height: 1.6;
+        }
+        .modal-body textarea:focus { outline: none; border-color: #667eea; }
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .modal-footer button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-cancel {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+        .btn-cancel:hover { background: #cbd5e0; }
+        .btn-save {
+            background: #667eea;
+            color: white;
+        }
+        .btn-save:hover { background: #5a6fd6; }
+        .btn-save:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📋 剪贴板管理</h1>
+            <a href="/" class="back-btn">← 返回目录</a>
+        </header>
+
+        <div id="message" class="message"></div>
+
+        <div class="card">
+            <div class="toolbar">
+                <span id="clipboardCount" class="clipboard-count">加载中...</span>
+                <button class="refresh-btn" onclick="loadClipboards()">刷新列表</button>
+            </div>
+            <div id="tableContainer">
+                <div class="loading">正在加载剪贴板列表...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>编辑剪贴板 <span id="modalId"></span></h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <textarea id="modalContent" placeholder="输入内容..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeModal()">取消</button>
+                <button id="modalSaveBtn" class="btn-save" onclick="saveEdit()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let clipboards = [];
+        let editingId = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadClipboards();
+        });
+
+        // Load all clipboards
+        async function loadClipboards() {
+            const container = document.getElementById('tableContainer');
+            container.innerHTML = '<div class="loading">正在加载剪贴板列表...</div>';
+
+            try {
+                const response = await fetch('/api/clipboards');
+                if (!response.ok) throw new Error('加载失败');
+
+                clipboards = await response.json();
+                renderTable();
+            } catch (error) {
+                container.innerHTML = `<div class="empty-state"><p>加载失败：${error.message}</p></div>`;
+                document.getElementById('clipboardCount').textContent = '加载失败';
+            }
+        }
+
+        // Render table
+        function renderTable() {
+            const container = document.getElementById('tableContainer');
+            const count = document.getElementById('clipboardCount');
+
+            if (clipboards.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p>暂无剪贴板</p>
+                        <a href="/cv">创建新剪贴板</a>
+                    </div>
+                `;
+                count.textContent = '共 0 个剪贴板';
+                return;
+            }
+
+            count.textContent = `共 ${clipboards.length} 个剪贴板`;
+
+            const table = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>内容预览</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${clipboards.map(cb => `
+                            <tr>
+                                <td class="id-cell">${cb.id}</td>
+                                <td class="content-preview">${escapeHtml(cb.contentPreview)}</td>
+                                <td class="time-cell">${formatTime(cb.createdAt)}</td>
+                                <td class="action-cell">
+                                    <button class="action-btn btn-view" onclick="viewClipboard('${cb.id}')">查看</button>
+                                    <button class="action-btn btn-edit" onclick="editClipboard('${cb.id}')">编辑</button>
+                                    <button class="action-btn btn-delete" onclick="deleteClipboard('${cb.id}')">删除</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            container.innerHTML = table;
+        }
+
+        // View clipboard (open in new tab)
+        function viewClipboard(id) {
+            window.open(`/cv/${id}`, '_blank');
+        }
+
+        // Edit clipboard
+        async function editClipboard(id) {
+            try {
+                const response = await fetch(`/api/clipboard/${id}`);
+                if (!response.ok) throw new Error('获取失败');
+
+                const data = await response.json();
+                editingId = id;
+                document.getElementById('modalId').textContent = `#${id}`;
+                document.getElementById('modalContent').value = data.content;
+                document.getElementById('editModal').classList.add('show');
+            } catch (error) {
+                showMessage(error.message, 'error');
+            }
+        }
+
+        // Save edit
+        async function saveEdit() {
+            if (!editingId) return;
+
+            const content = document.getElementById('modalContent').value;
+            if (!content.trim()) {
+                showMessage('内容不能为空', 'error');
+                return;
+            }
+
+            const saveBtn = document.getElementById('modalSaveBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = '保存中...';
+
+            try {
+                const response = await fetch(`/api/clipboard/${editingId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content }),
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || '保存失败');
+                }
+
+                showMessage('保存成功', 'success');
+                closeModal();
+                loadClipboards();
+            } catch (error) {
+                showMessage(error.message, 'error');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = '保存';
+            }
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('editModal').classList.remove('show');
+            editingId = null;
+        }
+
+        // Delete clipboard
+        async function deleteClipboard(id) {
+            if (!confirm(`确定要删除剪贴板 #${id} 吗？`)) return;
+
+            try {
+                const response = await fetch(`/api/clipboard/${id}`, {
+                    method: 'DELETE',
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || '删除失败');
+                }
+
+                showMessage('删除成功', 'success');
+                loadClipboards();
+            } catch (error) {
+                showMessage(error.message, 'error');
+            }
+        }
+
+        // Format timestamp
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+
+            if (diff < 60000) return '刚刚';
+            if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
+            if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
+
+            return date.toLocaleString('zh-CN', {
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+            });
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Show message
+        function showMessage(text, type = 'info') {
+            const message = document.getElementById('message');
+            message.textContent = text;
+            message.className = `message show ${type}`;
+            setTimeout(() => { message.className = 'message'; }, 3000);
+        }
+
+        // Close modal on background click
+        document.getElementById('editModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('editModal')) {
+                closeModal();
+            }
+        });
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
