@@ -18,6 +18,11 @@ export default {
       return handleClipboardAPI(request, env, ctx, path);
     }
 
+    // Root path
+    if (path === '/') {
+      return env.ASSETS.fetch(new Request(new URL('/index.html', request.url), request));
+    }
+
     // CV page with ID: /cv/:id
     if (path.match(/^\/cv\/\d{3}$/)) {
       return env.ASSETS.fetch(new Request(new URL('/cv.html', request.url), request));
