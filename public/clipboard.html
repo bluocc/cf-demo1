@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>剪贴板同步 - 在线工具箱</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f7fafc;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header h1 { font-size: 1.8rem; }
+        .back-btn {
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border: 2px solid white;
+            border-radius: 6px;
+            transition: background 0.3s ease;
+        }
+        .back-btn:hover { background: rgba(255, 255, 255, 0.2); }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .card h2 {
+            font-size: 1.2rem;
+            color: #2d3748;
+            margin-bottom: 16px;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            resize: vertical;
+            line-height: 1.6;
+            transition: border-color 0.2s;
+        }
+        textarea:focus { outline: none; border-color: #667eea; }
+        textarea:disabled { background: #f7fafc; cursor: not-allowed; }
+        .char-count {
+            text-align: right;
+            color: #718096;
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) { background: #5a6fd6; }
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+        .btn-secondary:hover:not(:disabled) { background: #cbd5e0; }
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+        .btn-success:hover:not(:disabled) { background: #38a169; }
+        .link-box {
+            display: none;
+            margin-top: 16px;
+            padding: 16px;
+            background: #f0fff4;
+            border: 2 solid #c6f6d5;
+            border-radius: 8px;
+        }
+        .link-box.show { display: block; }
+        .link-box label {
+            display: block;
+            color: #276749;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        .link-input-group {
+            display: flex;
+            gap: 8px;
+        }
+        .link-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #c6f6d5;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 14px;
+            background: white;
+        }
+        .link-input:focus { outline: none; border-color: #48bb78; }
+        .copy-btn {
+            padding: 12px 20px;
+            background: #48bb78;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .copy-btn:hover { background: #38a169; }
+        .sync-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+            color: #718096;
+            font-size: 0.9rem;
+        }
+        .sync-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #48bb78;
+            animation: pulse 2s infinite;
+        }
+        .sync-dot.paused { background: #e2e8f0; animation: none; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .message {
+            padding: 14px 18px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+            font-size: 0.95rem;
+        }
+        .message.show { display: block; }
+        .message.success { background: #c6f6d5; color: #22543d; }
+        .message.error { background: #fed7d7; color: #742a2a; }
+        .message.info { background: #bee3f8; color: #2a4365; }
+        .view-mode { display: none; }
+        .view-mode.show { display: block; }
+        .edit-mode { display: block; }
+        .edit-mode.hide { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📋 剪贴板同步</h1>
+            <a href="/" class="back-btn">← 返回目录</a>
+        </header>
+
+        <div id="message" class="message"></div>
+
+        <!-- Edit Mode -->
+        <div id="editMode" class="edit-mode">
+            <div class="card">
+                <h2>输入内容</h2>
+                <textarea id="content" placeholder="在这里输入要同步的内容..." oninput="updateCharCount()"></textarea>
+                <div class="char-count">
+                    <span id="charCount">0</span> / 65,536 字符
+                </div>
+                <div class="button-group">
+                    <button id="saveBtn" class="btn-primary" onclick="createClipboard()">
+                        创建剪贴板
+                    </button>
+                    <button id="updateBtn" class="btn-success" onclick="updateClipboard()" style="display: none;">
+                        更新内容
+                    </button>
+                </div>
+            </div>
+
+            <div id="linkBox" class="link-box">
+                <label>🔗 分享链接（自动轮询同步中）</label>
+                <div class="link-input-group">
+                    <input id="linkInput" class="link-input" readonly>
+                    <button class="copy-btn" onclick="copyLink()">复制链接</button>
+                </div>
+                <div class="sync-status">
+                    <div id="syncDot" class="sync-dot"></div>
+                    <span id="syncStatus">自动同步已开启（每 5 秒）</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- View Mode (when accessed via shared link) -->
+        <div id="viewMode" class="view-mode">
+            <div class="card">
+                <h2>剪贴板内容</h2>
+                <textarea id="viewContent" readonly></textarea>
+                <div class="button-group">
+                    <button class="btn-secondary" onclick="copyContent()">复制内容</button>
+                    <button id="editBtn" class="btn-primary" onclick="switchToEdit()">编辑</button>
+                </div>
+                <div class="sync-status">
+                    <div class="sync-dot"></div>
+                    <span>自动同步已开启（每 5 秒）</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let clipboardId = null;
+        let pollingInterval = null;
+        let lastContent = '';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const id = params.get('id');
+            if (id) {
+                clipboardId = id;
+                loadClipboard(id);
+            }
+        });
+
+        // Update character count
+        function updateCharCount() {
+            const content = document.getElementById('content').value;
+            document.getElementById('charCount').textContent = content.length.toLocaleString();
+        }
+
+        // Show message
+        function showMessage(text, type = 'info') {
+            const message = document.getElementById('message');
+            message.textContent = text;
+            message.className = `message show ${type}`;
+            setTimeout(() => { message.className = 'message'; }, 3000);
+        }
+
+        // Create new clipboard
+        async function createClipboard() {
+            const content = document.getElementById('content').value;
+            if (!content.trim()) {
+                showMessage('请输入内容', 'error');
+                return;
+            }
+
+            const saveBtn = document.getElementById('saveBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = '创建中...';
+
+            try {
+                const response = await fetch('/api/clipboard', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '创建失败');
+                }
+
+                clipboardId = data.id;
+                lastContent = content;
+
+                // Update URL without reload
+                const newUrl = `${window.location.pathname}?id=${clipboardId}`;
+                window.history.pushState({}, '', newUrl);
+
+                // Show link box
+                document.getElementById('linkInput').value = window.location.href;
+                document.getElementById('linkBox').classList.add('show');
+                document.getElementById('updateBtn').style.display = 'inline-block';
+
+                showMessage('剪贴板创建成功！', 'success');
+                startPolling();
+            } catch (error) {
+                showMessage(error.message, 'error');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = '创建剪贴板';
+            }
+        }
+
+        // Update clipboard
+        async function updateClipboard() {
+            if (!clipboardId) return;
+
+            const content = document.getElementById('content').value;
+            if (!content.trim()) {
+                showMessage('请输入内容', 'error');
+                return;
+            }
+
+            const updateBtn = document.getElementById('updateBtn');
+            updateBtn.disabled = true;
+            updateBtn.textContent = '更新中...';
+
+            try {
+                const response = await fetch(`/api/clipboard/${clipboardId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '更新失败');
+                }
+
+                lastContent = content;
+                showMessage('内容已更新', 'success');
+            } catch (error) {
+                showMessage(error.message, 'error');
+            } finally {
+                updateBtn.disabled = false;
+                updateBtn.textContent = '更新内容';
+            }
+        }
+
+        // Load clipboard content
+        async function loadClipboard(id) {
+            try {
+                const response = await fetch(`/api/clipboard/${id}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '加载失败');
+                }
+
+                // Switch to view mode
+                document.getElementById('editMode').classList.add('hide');
+                document.getElementById('viewMode').classList.add('show');
+                document.getElementById('viewContent').value = data.content;
+                lastContent = data.content;
+
+                startPolling();
+            } catch (error) {
+                showMessage(error.message, 'error');
+            }
+        }
+
+        // Switch to edit mode
+        function switchToEdit() {
+            const content = document.getElementById('viewContent').value;
+            document.getElementById('content').value = content;
+            document.getElementById('editMode').classList.remove('hide');
+            document.getElementById('editMode').classList.add('show');
+            document.getElementById('viewMode').classList.remove('show');
+            document.getElementById('updateBtn').style.display = 'inline-block';
+            document.getElementById('linkInput').value = window.location.href;
+            document.getElementById('linkBox').classList.add('show');
+            updateCharCount();
+        }
+
+        // Poll for updates
+        function startPolling() {
+            if (pollingInterval) clearInterval(pollingInterval);
+            
+            pollingInterval = setInterval(async () => {
+                if (!clipboardId) return;
+
+                try {
+                    const response = await fetch(`/api/clipboard/${clipboardId}`);
+                    if (!response.ok) return;
+
+                    const data = await response.json();
+                    
+                    // Check if content changed
+                    if (data.content !== lastContent) {
+                        lastContent = data.content;
+                        
+                        // Update the appropriate view
+                        const viewMode = document.getElementById('viewMode');
+                        if (viewMode.classList.contains('show')) {
+                            document.getElementById('viewContent').value = data.content;
+                        } else {
+                            document.getElementById('content').value = data.content;
+                            updateCharCount();
+                        }
+                        
+                        showMessage('内容已同步更新', 'info');
+                    }
+                } catch (error) {
+                    console.error('Polling error:', error);
+                }
+            }, 5000);
+        }
+
+        // Copy content to clipboard
+        function copyContent() {
+            const content = document.getElementById('viewContent').value;
+            navigator.clipboard.writeText(content).then(() => {
+                showMessage('内容已复制到剪贴板', 'success');
+            }).catch(() => {
+                // Fallback
+                const textarea = document.createElement('textarea');
+                textarea.value = content;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showMessage('内容已复制到剪贴板', 'success');
+            });
+        }
+
+        // Copy link to clipboard
+        function copyLink() {
+            const link = document.getElementById('linkInput').value;
+            navigator.clipboard.writeText(link).then(() => {
+                showMessage('链接已复制', 'success');
+            }).catch(() => {
+                const input = document.getElementById('linkInput');
+                input.select();
+                document.execCommand('copy');
+                showMessage('链接已复制', 'success');
+            });
+        }
+
+        // Update character count on load
+        updateCharCount();
+    </script>
+</body>
+</html>

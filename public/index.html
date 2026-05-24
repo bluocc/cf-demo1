@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在线工具箱</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { text-align: center; padding: 40px 0; color: white; }
+        header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        header p { font-size: 1.2rem; opacity: 0.9; }
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            padding: 20px 0;
+        }
+        .tool-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            text-decoration: none;
+            color: #333;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .tool-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.15);
+        }
+        .tool-icon { font-size: 3rem; margin-bottom: 15px; }
+        .tool-card h2 { font-size: 1.5rem; margin-bottom: 10px; color: #2d3748; }
+        .tool-card p { color: #718096; line-height: 1.6; }
+        footer { text-align: center; padding: 40px 0; color: white; opacity: 0.8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>在线工具箱</h1>
+            <p>简单、快速、免费的在线工具集合</p>
+        </header>
+        <div class="tools-grid">
+            <a href="/clipboard.html" class="tool-card">
+                <div class="tool-icon">📋</div>
+                <h2>剪贴板同步</h2>
+                <p>创建剪贴板，生成链接，多端自动同步内容</p>
+            </a>
+            <a href="/json-formatter.html" class="tool-card">
+                <div class="tool-icon">📝</div>
+                <h2>JSON 格式化</h2>
+                <p>格式化、验证和压缩 JSON 数据，支持语法高亮显示</p>
+            </a>
+            <a href="/word-count.html" class="tool-card">
+                <div class="tool-icon">📊</div>
+                <h2>字数统计</h2>
+                <p>统计文本的字数、字符数、行数和段落数</p>
+            </a>
+            <a href="/password-generator.html" class="tool-card">
+                <div class="tool-icon">🔐</div>
+                <h2>密码生成</h2>
+                <p>生成安全的随机密码，可自定义长度和字符类型</p>
+            </a>
+            <a href="/base64.html" class="tool-card">
+                <div class="tool-icon">🔄</div>
+                <h2>Base64 编码/解码</h2>
+                <p>文本的 Base64 编码和解码转换</p>
+            </a>
+        </div>
+        <footer>
+            <p>© 2026 在线工具箱 - 使用 Cloudflare Workers 构建</p>
+        </footer>
+    </div>
+</body>
+</html>
