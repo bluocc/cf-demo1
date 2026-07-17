@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>本地二维码扫描与识别</title>
+    <!-- 引入 jsQR 解析库 -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h2 { text-align: center; color: #2c3e50; }
+        .card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        button, .file-label {
+            flex: 1;
+            padding: 12px;
+            background: #3498db;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            text-align: center;
+            transition: background 0.2s;
+        }
+        button:hover, .file-label:hover { background: #2980b9; }
+        #file-input { display: none; }
+        
+        /* 视频容器 */
+        #video-container {
+            position: relative;
+            width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #000;
+            display: none;
+        }
+        #video { width: 100%; height: auto; display: block; }
+        
+        /* 扫描线动画 */
+        .scanner-laser {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 2px;
+            background: #e74c3c;
+            box-shadow: 0 0 8px #e74c3c;
+            animation: scanning 2s infinite linear;
+        }
+        @keyframes scanning {
+            0% { top: 0%; }
+            50% { top: 100%; }
+            100% { top: 0%; }
+        }
+
+        /* 结果展示区 */
+        #result-box {
+            word-break: break-all;
+            white-space: pre-wrap;
+            background: #f8f9fa;
+            border-left: 4px solid #2ecc71;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            display: none;
+        }
+        #result-box.error { border-left-color: #e74c3c; }
+        .loading { text-align: center; color: #666; display: none; margin: 10px 0; }
+    </style>
+</head>
+<body>
+
+    <h2>二维码识别工具</h2>
+
+    <div class="card">
+        <div class="btn-group">
+            <button id="start-btn">开启摄像头扫描</button>
+            <label for="file-input" class="file-label">上传/拖入图片</label>
+            <input type="file" id="file-input" accept="image/*">
+        </div>
+
+        <div id="loading" class="loading">正在初始化摄像头...</div>
+
+        <!-- 摄像头画面容器 -->
+        <div id="video-container">
+            <video id="video" playsinline></video>
+            <div class="scanner-laser"></div>
+        </div>
+
+        <!-- 结果输出 -->
+        <div id="result-box"></div>
+    </div>
+
+    <!-- 隐藏的 Canvas，用于捕获视频帧进行解析 -->
+    <canvas id="canvas" style="display: none;"></canvas>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const startBtn = document.getElementById('start-btn');
+        const fileInput = document.getElementById('file-input');
+        const videoContainer = document.getElementById('video-container');
+        const resultBox = document.getElementById('result-box');
+        const loading = document.getElementById('loading');
+
+        let stream = null;
+        let animationFrameId = null;
+
+        // 1. 摄像头扫描逻辑
+        startBtn.addEventListener('click', async () => {
+            if (stream) {
+                stopCamera();
+                return;
+            }
+
+            showResult(false);
+            loading.style.display = 'block';
+            
+            try {
+                // 请求后置摄像头
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment" }
+                });
+                video.srcObject = stream;
+                video.setAttribute("playsinline", true); // 兼容 iOS
+                video.play();
+                
+                loading.style.display = 'none';
+                videoContainer.style.display = 'block';
+                startBtn.textContent = '关闭摄像头';
+                startBtn.style.background = '#e74c3c';
+                
+                // 开始循环解析帧
+                animationFrameId = requestAnimationFrame(tick);
+            } catch (err) {
+                loading.style.display = 'none';
+                showResult(true, "无法访问摄像头，请确保已授予权限。如果是本地运行，请使用 localhost 或配置 HTTPS 环境。");
+                console.error(err);
+            }
+        });
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            videoContainer.style.display = 'none';
+            startBtn.textContent = '开启摄像头扫描';
+            startBtn.style.background = '#3498db';
+        }
+
+        // 帧轮询解析
+        function tick() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.height = video.videoHeight;
+                canvas.width = video.videoWidth;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+
+                if (code) {
+                    showResult(false, `扫描成功！\n\n结果：\n${code.data}`);
+                    stopCamera(); // 识别成功后自动关闭摄像头
+                    return;
+                }
+            }
+            animationFrameId = requestAnimationFrame(tick);
+        }
+
+        // 2. 图片上传识别逻辑
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            stopCamera(); // 如果开了摄像头，先关闭
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+                    
+                    if (code) {
+                        showResult(false, `解析成功！\n\n结果：\n${code.data}`);
+                    } else {
+                        showResult(true, "未在图片中识别到有效的二维码。");
+                    }
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // 辅助函数：展示结果
+        function showResult(isError, text) {
+            if (!text) {
+                resultBox.style.display = 'none';
+                return;
+            }
+            resultBox.style.display = 'block';
+            resultBox.textContent = text;
+            if (isError) {
+                resultBox.classList.add('error');
+            } else {
+                resultBox.classList.remove('error');
+            }
+        }
+    </script>
+</body>
+</html>
