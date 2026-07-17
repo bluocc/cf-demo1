@@ -4,7 +4,7 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "demo1",
+	"name": "cf-demo1",
 	"main": "src/index.js",
 	"compatibility_date": "2026-03-10",
 	"assets": {
